@@ -60,7 +60,16 @@ cronwatch will send an alert if the job exceeds its timeout, exits with a non-ze
 |---|---|
 | `schedule` | Standard cron expression for the expected run time |
 | `timeout` | Maximum allowed runtime before the job is flagged |
+| `grace_period` | Extra time allowed after the scheduled window before a missed-run alert fires (default: `5m`) |
 | `alert` | Notification target (email, Slack, or webhook) |
+
+### Alert targets
+
+| Key | Description |
+|---|---|
+| `email` | Send alert to the specified email address |
+| `slack_webhook` | Post alert to a Slack incoming webhook URL |
+| `webhook` | POST alert payload to an arbitrary HTTP endpoint |
 
 ---
 
