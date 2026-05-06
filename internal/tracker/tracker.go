@@ -5,91 +5,79 @@ import (
 	"time"
 )
 
-// Status represents the last known state of a monitored job.
-type Status int
-
-const (
-	StatusUnknown Status = iota
-	StatusOK
-	StatusMissed
-	StatusFailed
-)
-
-func (s Status) String() string {
-	switch s {
-	case StatusOK:
-		return "ok"
-	case StatusMissed:
-		return "missed"
-	case StatusFailed:
-		return "failed"
-	default:
-		return "unknown"
-	}
+// State holds the last known status of a cron job.
+type State struct {
+	Name        string    `json:"name"`
+	LastSuccess time.Time `json:"last_success"`
+	LastFailure time.Time `json:"last_failure"`
+	MissCount   int       `json:"miss_count"`
+	FailCount   int       `json:"fail_count"`
 }
 
-// JobState holds runtime state for a single cron job.
-type JobState struct {
-	LastSeen time.Time
-	LastStatus Status
-	ConsecutiveMisses int
-}
-
-// Tracker maintains in-memory state for all monitored jobs.
+// Tracker stores job states in memory.
 type Tracker struct {
-	mu    sync.RWMutex
-	states map[string]*JobState
+	mu     sync.RWMutex
+	states map[string]*State
 }
 
-// New creates a new Tracker.
+// New creates an empty Tracker.
 func New() *Tracker {
-	return &Tracker{
-		states: make(map[string]*JobState),
+	return &Tracker{states: make(map[string]*State)}
+}
+
+func (t *Tracker) getOrCreate(name string) *State {
+	if s, ok := t.states[name]; ok {
+		return s
 	}
+	s := &State{Name: name}
+	t.states[name] = s
+	return s
 }
 
-// RecordSuccess marks a job as successfully completed.
-func (t *Tracker) RecordSuccess(name string) {
+// RecordSuccess marks a successful run at the given time.
+func (t *Tracker) RecordSuccess(name string, at time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.getOrCreate(name)
-	s.LastSeen = time.Now()
-	s.LastStatus = StatusOK
-	s.ConsecutiveMisses = 0
+	s.LastSuccess = at
+	s.MissCount = 0
 }
 
-// RecordFailure marks a job run as failed.
-func (t *Tracker) RecordFailure(name string) {
+// RecordFailure marks a failed run.
+func (t *Tracker) RecordFailure(name string, at time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.getOrCreate(name)
-	s.LastSeen = time.Now()
-	s.LastStatus = StatusFailed
+	s.LastFailure = at
+	s.FailCount++
 }
 
-// RecordMiss increments the missed-run counter for a job.
+// RecordMiss increments the miss counter for a job.
 func (t *Tracker) RecordMiss(name string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.getOrCreate(name)
-	s.LastStatus = StatusMissed
-	s.ConsecutiveMisses++
+	s.MissCount++
 }
 
-// Get returns a copy of the current state for a job.
-func (t *Tracker) Get(name string) (JobState, bool) {
+// Get returns the state for a job, or false if unknown.
+func (t *Tracker) Get(name string) (State, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	s, ok := t.states[name]
 	if !ok {
-		return JobState{}, false
+		return State{}, false
 	}
 	return *s, true
 }
 
-func (t *Tracker) getOrCreate(name string) *JobState {
-	if _, ok := t.states[name]; !ok {
-		t.states[name] = &JobState{}
+// All returns a snapshot of all job states.
+func (t *Tracker) All() map[string]State {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	out := make(map[string]State, len(t.states))
+	for k, v := range t.states {
+		out[k] = *v
 	}
-	return t.states[name]
+	return out
 }
