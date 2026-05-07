@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -37,9 +38,12 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// Stop gracefully shuts down the server.
+// Stop gracefully shuts down the server with a timeout to allow in-flight
+// requests to complete before forcefully closing connections.
 func (s *Server) Stop() error {
-	return s.server.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return s.server.Shutdown(ctx)
 }
 
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
