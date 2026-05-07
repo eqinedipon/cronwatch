@@ -23,6 +23,7 @@ func New(addr string, t *tracker.Tracker, m *metrics.Metrics) *Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/jobs", s.listJobs)
 	mux.HandleFunc("/api/jobs/", s.getJob)
+	mux.HandleFunc("/api/metrics", s.getMetrics)
 	s.server = &http.Server{
 		Addr:         addr,
 		Handler:      mux,
@@ -73,4 +74,15 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(state) //nolint:errcheck
+}
+
+// getMetrics returns a JSON snapshot of current aggregate metrics.
+func (s *Server) getMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	snapshot := s.metrics.Snapshot()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(snapshot) //nolint:errcheck
 }
