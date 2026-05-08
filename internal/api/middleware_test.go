@@ -66,6 +66,20 @@ func TestResponseWriter_WriteHeaderOnce(t *testing.T) {
 	}
 }
 
+// TestResponseWriter_WriteFlushesStatus verifies that calling Write without a
+// prior WriteHeader still records a 200 status on the responseWriter.
+func TestResponseWriter_WriteFlushesStatus(t *testing.T) {
+	rec := httptest.NewRecorder()
+	rw := newResponseWriter(rec)
+	_, err := rw.Write([]byte("hello"))
+	if err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+	if rw.status != http.StatusOK {
+		t.Errorf("expected status 200 after implicit write, got %d", rw.status)
+	}
+}
+
 func TestChain_AppliesMiddlewareInOrder(t *testing.T) {
 	order := []string{}
 
