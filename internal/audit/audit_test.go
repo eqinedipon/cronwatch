@@ -85,3 +85,46 @@ func TestNew_InvalidPath(t *testing.T) {
 		t.Error("expected error for invalid path, got nil")
 	}
 }
+
+func TestLog_MultipleEntries(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/multi.log"
+
+	l, err := audit.New(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events := []audit.EventType{audit.EventSuccess, audit.EventMiss, audit.EventFailure}
+	for _, ev := range events {
+		if err := l.Log(audit.Entry{Job: "myjob", Event: ev}); err != nil {
+			t.Fatalf("Log(%s): %v", ev, err)
+		}
+	}
+	l.Close()
+
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	var entries []audit.Entry
+	for scanner.Scan() {
+		var e audit.Entry
+		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		entries = append(entries, e)
+	}
+
+	if len(entries) != len(events) {
+		t.Fatalf("got %d entries, want %d", len(entries), len(events))
+	}
+	for i, e := range entries {
+		if e.Event != events[i] {
+			t.Errorf("entry[%d].Event = %q, want %q", i, e.Event, events[i])
+		}
+	}
+}
