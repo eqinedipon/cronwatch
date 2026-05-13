@@ -79,3 +79,17 @@ func TestStartStop(t *testing.T) {
 		t.Fatalf("Stop: %v", err)
 	}
 }
+
+// TestStartStop_DoubleStop verifies that calling Stop twice does not panic or
+// return an unexpected error, ensuring graceful shutdown is idempotent.
+func TestStartStop_DoubleStop(t *testing.T) {
+	srv, _, _ := newTestServer(t)
+	if err := srv.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if err := srv.Stop(); err != nil {
+		t.Fatalf("first Stop: %v", err)
+	}
+	// Second Stop should not panic; an error is acceptable but not required.
+	_ = srv.Stop()
+}
