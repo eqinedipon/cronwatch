@@ -83,3 +83,27 @@ func TestFromConfig_CustomSettings(t *testing.T) {
 		t.Fatal("expected circuit-open error after threshold of 1")
 	}
 }
+
+// TestFromConfig_UnderThresholdAllowsSend verifies that sends below the failure
+// threshold are forwarded to the underlying sender without error.
+func TestFromConfig_UnderThresholdAllowsSend(t *testing.T) {
+	cfg := &config.Config{
+		Alerting: &config.AlertingConfig{
+			CircuitBreaker: &config.CircuitBreakerConfig{
+				FailureThreshold: 3,
+				CooldownSeconds:  int(time.Hour.Seconds()),
+			},
+		},
+	}
+	sender := &stubSender{}
+	guarded := circuitbreaker.FromConfig(cfg, sender)
+	// Two failures — one below the threshold of 3.
+	for i := 0; i < 2; i++ {
+		if err := guarded.Send(alerter.Alert{JobName: "job", Kind: "failure", Err: errors.New("boom")}); err != nil {
+			t.Fatalf("unexpected error before threshold: %v", err)
+		}
+	}
+	if sender.called != 2 {
+		t.Fatalf("expected underlying sender called 2 times, got %d", sender.called)
+	}
+}
