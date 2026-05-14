@@ -77,3 +77,14 @@ func TestGuardedSender_RecoverAfterCooldown(t *testing.T) {
 		t.Fatalf("expected closed after successful probe, got %s", b.State())
 	}
 }
+
+// TestGuardedSender_ErrorPropagated verifies that the error returned by the
+// inner sender is propagated unchanged to the caller.
+func TestGuardedSender_ErrorPropagated(t *testing.T) {
+	sentinel := errors.New("sentinel error")
+	gs, _, _ := newGuardedSender(10, time.Minute, sentinel)
+	err := gs.Send("job1", "miss", "")
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected sentinel error, got %v", err)
+	}
+}
