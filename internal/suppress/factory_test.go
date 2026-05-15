@@ -2,46 +2,58 @@ package suppress_test
 
 import (
 	"testing"
-	"time"
 
-	"github.com/cronwatch/cronwatch/internal/config"
-	"github.com/cronwatch/cronwatch/internal/suppress"
+	"github.com/cronwatch/internal/config"
+	"github.com/cronwatch/internal/suppress"
 )
 
 func TestFromConfig_NilConfig(t *testing.T) {
-	w := suppress.FromConfig(nil)
-	if w.Duration() != 30*time.Minute {
-		t.Fatalf("expected 30m default, got %v", w.Duration())
+	gs := suppress.FromConfig(nil, nil)
+	if gs != nil {
+		t.Fatal("expected nil GuardedSender for nil config")
 	}
 }
 
 func TestFromConfig_NilAlerting(t *testing.T) {
-	w := suppress.FromConfig(&config.Config{})
-	if w.Duration() != 30*time.Minute {
-		t.Fatalf("expected 30m default, got %v", w.Duration())
+	cfg := &config.Config{}
+	gs := suppress.FromConfig(cfg, nil)
+	if gs != nil {
+		t.Fatal("expected nil GuardedSender when alerting config is nil")
 	}
 }
 
 func TestFromConfig_ZeroMinutes(t *testing.T) {
-	cfg := &config.Config{Alerting: &config.Alerting{SuppressWindowMinutes: 0}}
-	w := suppress.FromConfig(cfg)
-	if w.Duration() != 30*time.Minute {
-		t.Fatalf("expected 30m default for zero, got %v", w.Duration())
+	cfg := &config.Config{
+		Alerting: &config.AlertingConfig{
+			SuppressWindowMinutes: 0,
+		},
+	}
+	gs := suppress.FromConfig(cfg, &mockSender{})
+	if gs != nil {
+		t.Fatal("expected nil GuardedSender for zero suppress window")
 	}
 }
 
 func TestFromConfig_CustomMinutes(t *testing.T) {
-	cfg := &config.Config{Alerting: &config.Alerting{SuppressWindowMinutes: 60}}
-	w := suppress.FromConfig(cfg)
-	if w.Duration() != 60*time.Minute {
-		t.Fatalf("expected 60m, got %v", w.Duration())
+	cfg := &config.Config{
+		Alerting: &config.AlertingConfig{
+			SuppressWindowMinutes: 10,
+		},
+	}
+	gs := suppress.FromConfig(cfg, &mockSender{})
+	if gs == nil {
+		t.Fatal("expected non-nil GuardedSender")
 	}
 }
 
 func TestFromConfig_NegativeMinutes(t *testing.T) {
-	cfg := &config.Config{Alerting: &config.Alerting{SuppressWindowMinutes: -10}}
-	w := suppress.FromConfig(cfg)
-	if w.Duration() != 30*time.Minute {
-		t.Fatalf("expected 30m default for negative, got %v", w.Duration())
+	cfg := &config.Config{
+		Alerting: &config.AlertingConfig{
+			SuppressWindowMinutes: -5,
+		},
+	}
+	gs := suppress.FromConfig(cfg, &mockSender{})
+	if gs != nil {
+		t.Fatal("expected nil GuardedSender for negative suppress window")
 	}
 }
